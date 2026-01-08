@@ -1,0 +1,35 @@
+# MALLORN Astronomical Classification Challenge
+# Core dependencies
+
+# Data processing
+pandas>=1.5.0
+numpy>=1.21.0
+
+# Machine Learning
+scikit-learn>=1.0.0
+xgboost>=1.7.0
+lightgbm>=3.3.0
+catboost>=1.1.0
+imbalanced-learn>=0.10.0
+
+# Gaussian Process
+george>=0.4.0
+
+# Deep Learning (optional)
+torch>=2.0.0
+
+# Optimization
+scipy>=1.9.0
+optuna>=3.0.0
+
+# Visualization
+matplotlib>=3.5.0
+seaborn>=0.12.0
+plotly>=5.10.0
+
+# Astronomy (optional)
+# cesium>=0.10.1  # May require separate installation
+
+# Utilities
+tqdm>=4.64.0
+joblib>=1.2.0

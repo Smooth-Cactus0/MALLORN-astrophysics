@@ -1,0 +1,85 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# Data files (large) - Competition data not included
+data/raw/**/*.csv
+data/raw/**/*.pkl
+data/raw/split_*
+data/external/
+
+# Processed data (keep smaller files, ignore large caches)
+data/processed/*_cache.pkl
+data/processed/features_v*.pkl
+data/processed/atat_pretrained/
+
+# Model weights and artifacts
+weights/
+catboost_info/
+*.model
+*.ubj
+*.pkl
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+nul
+
+# Temporary files
+*.log
+*.tmp
+.cache/
+.claude/
+
+# Session files
+2026-*.txt
+*-session-*.txt
+
+# Large text dumps
+full_kaggle_astro.txt
+
+# Local batch scripts
+*.bat
+
+# Submissions (derived files, can be regenerated)
+submissions/*.csv
+
+# Environment
+.env
+venv/
+env/
+ENV/
+
+# Keep important documentation
+!README.md
+!BENCHMARKS.md
+!PODIUM_ROADMAP.md
+!TWO_STAGE_ROADMAP.md
+!FEATURE_ENGINEERING_ROADMAP.md
+!COMPETITION_PLAN.md
+!CLAUDE.md
+!requirements.txt
+!LICENSE
+
+# Keep visualizations (not data)
+!visualizations/*.png
+!visualizations/*.jpg
+!visualizations/*.svg
