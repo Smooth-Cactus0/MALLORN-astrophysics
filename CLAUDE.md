@@ -355,28 +355,45 @@ MALLORN astrophysics/
 | Dec 25 | v1 | 0.30 | 0.333 | GBM | Statistical features only |
 | Dec 25 | v2 | 0.51 | 0.499 | GBM | +Color features |
 | Dec 25 | v3 | 0.56 | - | GBM | +Shape features |
-| Dec 26 | **v8** | **0.6262** | **0.6481** | **GBM Ensemble** | **Best score (Rank 47/489)** |
+| Dec 26 | v8 | 0.6262 | 0.6481 | GBM Ensemble | Rank 47/489 |
 | Dec 26 | v11 | 0.12 | - | LSTM | Raw lightcurves |
-| Dec 26 | v13 | 0.11 | - | Transformer | Self-attention |
-| Dec 26 | v14 | 0.47 | - | MLP on features | Better than raw DL |
-| Dec 27 | v15 | 0.63 | 0.6463 | GBM+NN+LSTM | Ensemble didn't improve |
-| Dec 27 | v16 | 0.12 | - | LSTM+PLAsTiCC | External data hurt (domain shift) |
-| Dec 27 | v17 | 0.10 | - | 1D-CNN+Aug | Heavy augmentation backfired |
-| Dec 27 | v18 | 0.6130 | - | GBM+Per-band GP | Per-band GP hurt (-2.1%) |
-| Dec 27 | v19 | 0.6626 | 0.6649 | GBM+Multi-band GP | Rank 23/496 (+5.8% OOF) |
-| Dec 28 | v20 | 0.6432 | - | GBM+ALL features | Too many features hurt |
-| Dec 28 | v20b | 0.6535 | - | GBM+Selective ADV | Better feature selection |
-| Dec 28 | v20c | 0.6687 | 0.6518 | GBM+Optuna tuned | +0.92% over v19 OOF |
-| Dec 28 | **v21** | **0.6708** | *pending* | **XGB only** | **Best single model** |
-| Dec 28 | v22 | 0.5053 | *pending* | ATAT (Transformer) | +38.5% over LSTM! |
+| Dec 27 | v19 | 0.6626 | 0.6649 | GBM+Multi-band GP | +5.8% OOF |
+| Dec 28 | v20c | 0.6687 | 0.6518 | GBM+Optuna tuned | +0.92% over v19 |
+| Dec 28 | **v34a** | **0.6667** | **0.6907** | **XGB Optuna** | **BEST LB** |
+| Jan 11 | v65 | 0.6780 | 0.6344 | MaxVar features | Severe overfit |
+| Jan 11 | v71 | 0.6701 | 0.5800 | PLAsTiCC augment | Catastrophic overfit |
+| Jan 11 | v72 | 0.6723 | 0.6500 | Top 100 features | Feature reduction |
+| Jan 11 | v74 | 0.6856 | 0.6441 | Selective Cesium | Overfit |
+| Jan 11 | v77 | 0.6886 | 0.6714 | LightGBM Optuna | Best OOF LGB |
+| Jan 11 | v78 | 0.6921 | 0.6558 | XGB+LGB Ensemble | Ensemble hurt |
+| Jan 11 | v79c | 0.6834 | 0.6891 | 70 physics features | 2nd best LB |
+| Jan 11 | v80a | 0.7118 | 0.6666 | +Structure Function | Best OOF, overfit |
+| Jan 11 | v80c | 0.7000 | 0.6682 | +SF+TDE+Decline | At 0.70 barrier |
 
-### Key Learnings
-- **PLAsTiCC 1st place used SINGLE LightGBM** - validates our approach
-- **DL models (LSTM, Transformer, CNN) all achieved F1~0.10-0.12** - need transfer learning
-- **Color features = 41.5% of model importance** - physics matters!
-- **External data (PLAsTiCC) caused domain shift** - MALLORN distribution is unique
-- **Multi-band GP (2D kernel) >> per-band GP** - captures cross-band correlations
-- **george package with Matérn-3/2 kernel** - following 2025 TDE paper (arxiv.org/abs/2509.25902)
+### Key Learnings (Updated Jan 2026)
+
+**Critical Pattern: Higher OOF F1 = WORSE LB F1**
+- v34a: OOF 0.6667 → LB 0.6907 (best)
+- v77: OOF 0.6886 → LB 0.6714
+- v80a: OOF 0.7118 → LB 0.6666
+
+**Feature Engineering Insights:**
+- **Structure Function features**: +1.5% OOF (captures AGN damped random walk)
+- **Color-magnitude relation**: +1.3% OOF (AGN "bluer when brighter")
+- **TDE power law deviation**: +1.1% OOF (tests t^-5/3 decay)
+- **70 physics features optimal**: More features = worse LB
+- **PLAsTiCC augmentation catastrophic**: 0.58 LB (train/test shift)
+
+**Algorithm Insights:**
+- XGBoost generalizes better than LightGBM despite worse OOF
+- Ensembling HURTS (v78 ensemble worse than solo models)
+- CatBoost poor performance (0.56 OOF)
+
+**What Didn't Work:**
+- Adding more features (always hurt LB)
+- Augmentation (domain shift)
+- Ensembling (combined overfitting)
+- Cesium time-series features (noise)
 - **More features ≠ better** - v20 (375 features) < v19 (172 features) in OOF F1
 - **Selective feature addition wins** - Only add features that prove useful through benchmarking
 - **Optuna tuning is essential** - v20c gained +1.5% from proper hyperparameter search
