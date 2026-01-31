@@ -70,6 +70,7 @@ ENV/
 
 # Keep important documentation
 !README.md
+!SOLUTION.md
 !BENCHMARKS.md
 !PODIUM_ROADMAP.md
 !TWO_STAGE_ROADMAP.md

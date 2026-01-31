@@ -1,9 +1,10 @@
 # MALLORN Competition Benchmarks
 
 **Author**: Alexy Louis
-**Last Updated**: January 8, 2026
-**Current Best**: LB F1 = 0.6907 (v34a)
-**Top Competitor**: LB F1 = 0.735
+**Last Updated**: January 31, 2026
+**Final Ranking**: 4th / 894 (Private LB F1 = 0.6684, v92d)
+**Best Public LB**: F1 = 0.6986 (v92d)
+**Competition Winner**: ~0.75 F1
 
 ---
 
@@ -85,7 +86,7 @@
 
 | Version | OOF F1 | LB F1 | Model | Features | Notes |
 |---------|--------|-------|-------|----------|-------|
-| **v34a** | **0.6667** | **0.6907** | **XGBoost** | **+Bazin params** | **CURRENT BEST LB (+2.58%)** |
+| **v34a** | **0.6667** | **0.6907** | **XGBoost** | **+Bazin params** | **Bazin breakthrough (+2.58%)** |
 | v34b | 0.6489 | - | XGBoost | +SMOTE | Oversampling hurt |
 | v34b_cons | 0.6392 | - | XGBoost | Conservative SMOTE | Still hurt |
 | v34c | 0.6748 | 0.6698 | XGBoost | +Calibration | Better OOF, worse LB |
@@ -154,21 +155,99 @@
 
 ---
 
+### Phase 13: Feature Engineering & Algorithm Experiments (Jan 5-15, 2026)
+
+| Version | OOF F1 | Public LB | Model | Features | Notes |
+|---------|--------|-----------|-------|----------|-------|
+| v62 | 0.66 | - | XGBoost | Blackbody radius | Temperature evolution |
+| v63-65 | 0.66-0.67 | - | XGBoost | R_bb, MaxVar features | Incremental improvements |
+| v66-v75 | 0.65-0.68 | - | Various | Feature experiments | Many small tests |
+| v76 | 0.65 | - | LightGBM | Bazin features | LightGBM comparison |
+| v77 | 0.6886 | 0.6714 | LightGBM | Optuna tuned | High OOF, lower LB (overfit) |
+| v78 | 0.66 | - | Ensemble | XGB + LGBM | Naive ensemble worse |
+| v79c | 0.6834 | 0.6891 | XGBoost | 70 physics features | Curated set |
+| v80a | 0.7118 | 0.6666 | XGBoost | Aggressive | Severe overfit! |
+
+### Phase 14: Adversarial Validation & Focal Loss (Jan 15-20, 2026)
+
+| Version | OOF F1 | Public LB | Private LB | Model | Notes |
+|---------|--------|-----------|------------|-------|-------|
+| v81-v91 | various | - | - | XGBoost | Regularization, focal loss experiments |
+| v92a | 0.6327 | - | - | XGBoost | Focal g=1 + adv weights |
+| v92b | 0.6495 | - | - | XGBoost | Focal g=2 + adv weights |
+| v92c | 0.6477 | - | - | XGBoost | Focal g=2, alpha=0.9 + adv weights |
+| **v92d** | **0.6688** | **0.6986** | **0.6684** | **XGBoost** | **Adv weights, no focal = WINNER** |
+| v93-v103 | various | - | - | Various | Ensemble, pseudo-label, distillation |
+| v104 | 0.6866 | 0.6811 | 0.6700 | XGBoost | 10-seed v92d ensemble |
+| v105b | 0.6832 | 0.6862 | - | XGBoost | Cross-feature interactions |
+| v106b | 0.6435 | 0.6851 | - | XGBoost | MixUp augmentation |
+| v108b | 0.6925 | 0.6325 | - | XGBoost | Knowledge distillation (worst LB!) |
+
+**Key Learning**: v92d proves adversarial validation is the single most important technique. Higher OOF = worse LB confirmed (v108b).
+
+### Phase 15: LightGBM & XGBoost Research (Jan 20-27, 2026)
+
+| Version | OOF F1 | Public LB | Private LB | Model | Notes |
+|---------|--------|-----------|------------|-------|-------|
+| v110 | 0.6609 | - | - | LightGBM | Heavy regularization |
+| v111 | 0.6608 | - | - | LightGBM | DART boosting |
+| v112 | 0.6914 | - | - | LightGBM | Optuna constrained search |
+| v114a | 0.6542 | 0.6542 | - | LightGBM | Best research features |
+| v114d | 0.6786 | 0.6797 | - | LightGBM | Minimal research features |
+| v115a | 0.68 | 0.6894 | - | XGBoost | v34a + adv weights (no extras) |
+| v115b | 0.68 | 0.6682 | - | XGBoost | + minimal research features |
+| **v115c** | **0.68** | **0.6840** | **0.6757** | **XGBoost** | **+ extended research features** |
+
+### Phase 16: CatBoost & Ensembles (Jan 27-29, 2026)
+
+| Version | OOF F1 | Public LB | Model | Notes |
+|---------|--------|-----------|-------|-------|
+| v118 | 0.6289 | - | CatBoost | Optuna-tuned, 230 features |
+| v123 | 0.6882 | - | CatBoost | **Optimized: 75 features (+0.06!)** |
+| v124_conservative | 0.6857 | 0.6976 | Ensemble | 4-model blend (good generalization) |
+| v124_best | 0.6859 | 0.6894 | Ensemble | Optimized weight blend |
+| v125_optimized | 0.7003 | 0.6618 | Ensemble | **Overfit: 60% CatBoost weight** |
+| v125_equal | 0.6786 | 0.6746 | Ensemble | Equal 4-model blend |
+| v126_heavy | 0.6744 | 0.6528 | Ensemble | v92d-heavy blend (overfit) |
+
+**Key Learning**: Feature reduction helped all models dramatically (CatBoost: +0.06, LightGBM: +0.04). But ensemble weight optimization overfit severely.
+
+---
+
+## Final Private Leaderboard Results
+
+| Submission | Public LB | Private LB | Delta (Pub-Priv) | Selected? |
+|------------|-----------|------------|-------------------|-----------|
+| **v92d_baseline_adv** | **0.6986** | **0.6684** | -0.030 | **Yes (Final)** |
+| v115c_extended | 0.6840 | 0.6757 | -0.008 | No |
+| v55_powerlaw | 0.6873 | 0.6737 | -0.014 | No |
+| v42_pseudolabel | 0.6666 | 0.6735 | +0.007 | No |
+| v104_seed_ensemble | 0.6811 | 0.6700 | -0.011 | No |
+
+---
+
 ## Best Models by Category
 
-### By LB Score
-1. **v34a**: LB F1 = 0.6907 (Bazin features)
-2. **v60a**: LB F1 ≈ 0.69 (Two-stage)
-3. **v61a**: LB F1 = 0.6811 (Enhanced two-stage)
-4. **v21**: LB F1 = 0.6649 (XGBoost only)
-5. **v8**: LB F1 = 0.6481 (Tuned ensemble)
+### By Private LB Score (Final)
+1. **v115c**: Private F1 = 0.6757 (Extended research features)
+2. **v55**: Private F1 = 0.6737 (Power law decay features)
+3. **v42**: Private F1 = 0.6735 (Conservative pseudo-labeling)
+4. **v104**: Private F1 = 0.6700 (10-seed ensemble)
+5. **v92d**: Private F1 = 0.6684 (Adversarial weights -- selected as final)
 
-### By OOF Score
-1. **v60a**: OOF F1 = 0.6815 (Two-stage)
-2. **v34c**: OOF F1 = 0.6748 (Calibrated)
-3. **v21**: OOF F1 = 0.6708 (XGBoost only)
-4. **v39b**: OOF F1 = 0.6688 (Adversarial)
-5. **v20c**: OOF F1 = 0.6687 (Optuna tuned)
+### By Public LB Score
+1. **v92d**: Public F1 = 0.6986 (Adversarial weights)
+2. **v124_conservative**: Public F1 = 0.6976 (4-model ensemble)
+3. **v34a**: Public F1 = 0.6907 (Bazin features)
+4. **v115a**: Public F1 = 0.6894 (v34a + adv weights)
+5. **v124_best**: Public F1 = 0.6894 (Optimized ensemble)
+
+### By OOF Score (Unreliable -- inversely correlated with LB!)
+1. **v80a**: OOF F1 = 0.7118 -- Public LB only 0.6666 (OVERFIT)
+2. **v125_optimized**: OOF F1 = 0.7003 -- Public LB only 0.6618 (OVERFIT)
+3. **v108b**: OOF F1 = 0.6925 -- Public LB only 0.6325 (WORST)
+4. **v112**: OOF F1 = 0.6914
+5. **v77**: OOF F1 = 0.6886 -- Public LB 0.6714 (overfit)
 
 ---
 
@@ -250,42 +329,42 @@
 
 ## Submission Log
 
-| Date | Version | LB F1 | Rank | Notes |
-|------|---------|-------|------|-------|
-| Dec 25 | v1 | 0.333 | ~400 | Initial submission |
-| Dec 25 | v2 | 0.499 | ~300 | Color features |
-| Dec 26 | v8 | 0.6481 | ~50 | Tuned ensemble |
-| Dec 27 | v19 | 0.6649 | 23 | Multi-band GP |
-| Dec 28 | v21 | 0.6649 | 23 | XGBoost only |
-| Dec 31 | **v34a** | **0.6907** | ~15 | **Bazin (BEST)** |
-| Jan 5 | v61a | 0.6811 | ~20 | Two-stage |
+| Date | Version | Public LB | Private LB | Rank | Notes |
+|------|---------|-----------|------------|------|-------|
+| Dec 25 | v1 | 0.333 | - | ~400 | Initial submission |
+| Dec 25 | v2 | 0.499 | - | ~300 | Color features |
+| Dec 26 | v8 | 0.6481 | - | ~50 | Tuned ensemble |
+| Dec 27 | v19 | 0.6649 | - | 23 | Multi-band GP |
+| Dec 28 | v21 | 0.6649 | - | 23 | XGBoost only |
+| Dec 31 | **v34a** | **0.6907** | - | ~15 | Bazin features |
+| Jan 5 | v61a | 0.6811 | - | ~20 | Two-stage |
+| Jan 15 | v55 | 0.6873 | **0.6737** | ~15 | Power law features |
+| Jan 20 | **v92d** | **0.6986** | **0.6684** | ~8 | **Adversarial validation** |
+| Jan 27 | v115c | 0.6840 | **0.6757** | ~12 | Extended research |
+| Jan 28 | v124_conservative | 0.6976 | - | ~8 | 4-model ensemble |
+| Jan 29 | v125_optimized | 0.6618 | - | ~30 | Overfit ensemble |
 
 ---
 
-## Gap Analysis
+## Post-Competition Analysis
 
-**Current Best**: LB F1 = 0.6907 (v34a)
-**Top Competitor**: LB F1 = 0.735
-**Gap**: 0.044 F1 points
+**Final Ranking**: 4th / 894 (Top 0.5%)
+**Winner**: ~0.75 F1 (private)
 
-### Potential Sources of Gap
+### The OOF-LB Anti-Correlation
 
-1. **Undiscovered features** - Competitor may have astronomy domain expertise
-2. **Better ensemble** - Multiple diverse models
-3. **Advanced pseudo-labeling** - Iterative training on high-confidence predictions
-4. **Custom loss functions** - Beyond focal loss
-5. **Model stacking** - Meta-learner on OOF predictions
+The defining pattern of this competition: higher OOF F1 reliably predicted **worse** leaderboard performance. This table shows the anti-correlation across all models with LB scores:
 
-### Remaining Techniques to Try
+| Model | OOF F1 | Public LB | Delta |
+|-------|--------|-----------|-------|
+| v92d | 0.6688 | 0.6986 | **+0.030** |
+| v34a | 0.6667 | 0.6907 | +0.024 |
+| v79c | 0.6834 | 0.6891 | +0.006 |
+| v77 | 0.6886 | 0.6714 | -0.017 |
+| v80a | 0.7118 | 0.6666 | -0.045 |
+| v108b | 0.6925 | 0.6325 | **-0.060** |
 
-| Technique | Expected Gain | Effort |
-|-----------|---------------|--------|
-| Cesium features (proper) | +1-2% | Medium |
-| Conservative pseudo-labeling (0.99) | +1-2% | Medium |
-| Focal loss (tuned γ) | +1-2% | Low |
-| Three-stage cascade | +1-2% | High |
-| Temperature evolution | +1-2% | Medium |
-| Stacking meta-learner | +1-3% | High |
+**Lesson**: In distribution-shifted competitions, OOF optimization is counterproductive. Techniques that align training to test distribution (adversarial validation) matter more than model complexity.
 
 ---
 

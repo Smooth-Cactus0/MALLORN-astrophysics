@@ -1,416 +1,241 @@
 # CLAUDE.md - MALLORN Astronomical Classification Challenge
 
-## Competition Overview
+## Competition Result
 
-**Goal**: Classify nuclear transients into **TDEs** (Tidal Disruption Events), **Supernovae**, or **AGN** (Active Galactic Nuclei)
+**Final Ranking**: 4th / 894 (Top 0.5%)
+
+**Goal**: Binary classification - identify **TDEs** (Tidal Disruption Events) vs non-TDEs (Supernovae + AGN)
 
 | Aspect | Details |
 |--------|---------|
 | **Metric** | F1 Score |
-| **Prize** | €1,000 |
-| **Deadline** | January 30, 2026 |
-| **Dataset** | 10,178 simulated LSST lightcurves |
-| **Training Split** | 30% (with labels) |
-| **Test Split** | 70% (public + private) |
+| **Prize** | EUR 1,000 |
+| **Final Ranking** | 4th / 894 |
+| **Winning Model** | v92d XGBoost + Adversarial Validation |
+| **Private LB F1** | 0.6684 |
+| **Public LB F1** | 0.6986 |
 
-## Key Resources
+## Solution Summary
 
-- **Kaggle Competition**: https://www.kaggle.com/competitions/mallorn-astronomical-classification-challenge
-- **ArXiv Paper**: https://arxiv.org/abs/2512.04946
-- **Data Production Colab**: https://colab.research.google.com/drive/1oy96r29Zs4U5Hl-THsZPCnOQbuz21hl5
-- **Data Usage Colab**: https://colab.research.google.com/drive/1N7Q1bxc2gxBuOv2eD3fTYsrxoLC2dQAP
-- **PLAsTiCC Solutions (reference)**: https://github.com/kozodoi/Kaggle_Astronomical_Classification
-
-## Transfer Learning Resources (Research Dec 2025)
-
-| Resource | Link | Use Case |
-|----------|------|----------|
-| **ASTROMER** | `pip install ASTROMER==0.1.7` | Pre-trained embeddings for GBM |
-| **ASTROMER GitHub** | github.com/astromer-science/python-library | Single-band transformer |
-| **ATAT** | github.com/alercebroker/ATAT | Time series + tabular transformer |
-| **SwinV2 for LCs** | github.com/dnlmoreno/VT_Model_for_LightCurves_Classification | Lightcurve→image approach |
-| **2025 TDE Paper** | arxiv.org/abs/2509.25902 | GP features, post-peak colors |
+The winning approach was a **single XGBoost model** with **adversarial validation sample weights** and **222 physics-informed features**. No ensembling, no Optuna tuning, no multi-seed averaging. See [SOLUTION.md](SOLUTION.md) for details.
 
 ---
 
-## Development Plan (Revised Dec 2025)
+## Current Best Models
 
-### Current Best: v20c Optuna-tuned → OOF F1=0.6687 (+0.92% vs v19), LB pending
+### Model 1: v92d XGBoost + Adversarial Weights (BEST LB: 0.6986)
 
-### Phase A: Enhanced GBM with Transfer Learning Features ✅ DONE
-**Goal**: Push GBM score higher using research-backed features
+**Script**: `non_successful_tests/scripts/train_v92_focal_adversarial.py`
 
-1. **Physics-based features**
-   - Gaussian Process length scales (confirmed key in 2025 TDE paper)
-   - Blackbody temperature estimation from multi-band flux
-   - Temperature evolution rate (dT/dt)
-   - Structure functions for variability characterization
+**Architecture**: XGBoost with adversarial sample weighting
+```python
+# Uses v34a features + adversarial weights
+# Adversarial weights: down-weight training samples that look different from test
+# Loaded from: data/processed/adversarial_validation.pkl
+```
 
-2. **Enhanced post-peak color features**
-   - More time points: 10d, 30d, 50d, 75d, 100d, 150d post-peak
-   - Color evolution derivatives (d(g-r)/dt)
-   - Color dispersion/stability metrics
+**Key Innovation**:
+- **Adversarial validation** identifies train samples that differ from test distribution
+- Down-weights "outlier" training samples to focus on generalizable patterns
+- Uses same v34a feature set (224 features)
 
-3. **ASTROMER embeddings as features**
-   - `pip install ASTROMER==0.1.7`
-   - Generate embeddings per band using pre-trained 'macho' weights
-   - Feed embeddings to GBM alongside existing features
-   - This gives GBM access to learned representations
+**Key Metrics**:
+- LB F1: **0.6986** (BEST)
 
-### Phase B: ATAT Implementation
-**Goal**: Compare proper transfer-learning DL to our homemade LSTM
+### Model 2: v34a XGBoost (2nd Best LB: 0.6907)
 
-1. Clone and adapt ATAT (github.com/alercebroker/ATAT)
-2. Convert MALLORN data to ATAT format
-3. Train and evaluate on same CV splits
-4. Compare: ATAT vs LSTM (F1=0.12) vs GBM (F1=0.63)
+**Script**: `scripts/train_v34a_bazin.py`
 
-### Phase C: SwinV2 Image Approach (Experimental)
-**Goal**: Try novel lightcurve→image approach that beat all benchmarks
+**Architecture**:
+```python
+xgb_params = {
+    'objective': 'binary:logistic',
+    'max_depth': 5,
+    'learning_rate': 0.025,
+    'subsample': 0.8,
+    'colsample_bytree': 0.8,
+    'min_child_weight': 3,
+    'reg_alpha': 0.2,
+    'reg_lambda': 1.5,
+    'scale_pos_weight': 19.56,  # Class imbalance ratio
+    'tree_method': 'hist',
+}
+```
 
-1. Clone VT_Model_for_LightCurves_Classification
-2. Generate images from multi-band lightcurves
-3. Fine-tune ImageNet-pretrained SwinV2
-4. Potential to beat all other approaches (F1=84.1 on MACHO, 65.5 on ELAsTiCC)
+**Features (224 total)**:
+- 120 selected base features (from importance ranking)
+- TDE physics features (decay rates, power law fits)
+- Multi-band GP features (2D Gaussian Process)
+- Bazin parametric fits (rise/fall timescales)
 
----
-
-## Original Development Plan (Completed Phases)
-
-### Phase 1: ML Baseline ✅
-1. Set up data loading pipeline
-2. Implement basic statistical features
-3. Train XGBoost baseline
-4. Train LightGBM baseline
-5. Establish validation strategy (stratified K-fold)
-
-### Phase 2: RNN Development ✅ (Attempted, F1=0.12)
-1. Design sequence data pipeline (raw lightcurves)
-2. Implement LSTM/GRU architecture
-3. Add attention mechanism
-4. Train and evaluate
-
-### Phase 3: Advanced Feature Engineering ✅
-1. Gaussian Process fitting for lightcurve interpolation
-2. Color features (g-r, r-i at peak and post-peak)
-3. Color evolution slopes
-4. Cross-band correlations
-5. Physics-based features (temperature estimation, structure functions)
-
-### Phase 4: Data Augmentation ✅ (Attempted, didn't help DL)
-1. Time shifting
-2. Flux scaling
-3. Cadence resampling
-4. Noise injection
-5. Evaluate impact on each model
-
-### Phase 5: Ensembling ✅ (v15 ensemble didn't beat v8)
-1. Weighted averaging
-2. Stacking with meta-learner
-3. Blending on holdout
-4. Rank averaging
-5. Optimize ensemble weights
+**Key Metrics**:
+- OOF F1: 0.6667
+- LB F1: **0.6907**
+- Optimal threshold: ~0.07
 
 ---
 
-## Actual Data Structure (Downloaded)
+## Feature Sets & Cached Data
 
-Data location: `data/raw/`
+All features are pre-computed and cached in `data/processed/`:
 
-### File Organization
+| Cache File | Features | Description |
+|------------|----------|-------------|
+| `features_v4_cache.pkl` | ~200 | Base statistical + shape + color features |
+| `tde_physics_cache.pkl` | ~20 | TDE-specific physics (decay rates, power law) |
+| `multiband_gp_cache.pkl` | ~15 | 2D Gaussian Process (time + wavelength) |
+| `bazin_features_cache.pkl` | ~50 | Bazin function fits per band |
+| `v34a_artifacts.pkl` | - | OOF predictions, feature importance, threshold |
+
+### Top 10 Most Important Features (from v34a)
+
+| Rank | Feature | Category |
+|------|---------|----------|
+| 1 | `gp_gr_color_50d` | Color evolution |
+| 2 | `r_skew` | Light curve shape |
+| 3 | `gp2d_wave_scale` | GP wavelength scale |
+| 4 | `r_bazin_B` | Bazin amplitude |
+| 5 | `r_bazin_tau_rise` | Rise timescale |
+| 6 | `r_bazin_tau_fall` | Decline timescale |
+| 7 | `gp_gr_color_20d` | Early color |
+| 8 | `gp_ri_color_50d` | r-i color |
+| 9 | `g_skew` | g-band asymmetry |
+| 10 | `g_bazin_B` | g-band amplitude |
+
+---
+
+## LightGBM Development (In Progress)
+
+### Critical Insight: OOF vs LB Paradox
+
+**Higher OOF F1 often means WORSE LB F1** (overfitting):
+- v34a: OOF 0.6667 → LB **0.6907** (best)
+- v77: OOF 0.6886 → LB 0.6714 (overfit)
+- v80a: OOF 0.7118 → LB 0.6666 (severe overfit)
+
+**Strategy**: Use heavy regularization to force LightGBM to generalize.
+
+### LightGBM Experiments
+
+| Version | OOF F1 | LB F1 | Strategy |
+|---------|--------|-------|----------|
+| v77 | 0.6886 | 0.6714 | Optuna (overfits) |
+| v110 | 0.6609 | TBD | Heavy regularization |
+| v111 | 0.6608 | TBD | DART boosting |
+| v112 | 0.6914 | TBD | Optuna constrained search |
+
+**v112 Best Parameters** (Optuna found):
+```python
+lgb_params = {
+    'boosting_type': 'dart',
+    'num_leaves': 15,
+    'max_depth': 5,
+    'learning_rate': 0.029,
+    'n_estimators': 655,
+    'feature_fraction': 0.301,  # Very aggressive
+    'bagging_fraction': 0.576,
+    'reg_alpha': 2.41,
+    'reg_lambda': 5.44,
+    'drop_rate': 0.271,  # DART dropout
+    'skip_drop': 0.540,
+}
+```
+
+---
+
+## Data Structure
+
+**Location**: `data/raw/`
+
 ```
 data/raw/
-├── train_log.csv          # Training metadata (3,054 objects)
-├── test_log.csv           # Test metadata (7,124 objects)
-├── sample_submission.csv  # Submission format
-└── split_01/ to split_20/ # Lightcurve data in 20 splits
-    ├── train_full_lightcurves.csv
-    └── test_full_lightcurves.csv
+├── train_log.csv          # 3,054 objects (148 TDE, 2906 non-TDE)
+├── test_log.csv           # 7,124 objects
+├── sample_submission.csv
+└── split_01/ to split_20/ # Lightcurve data
 ```
 
-### train_log.csv / test_log.csv Columns
-| Column | Description | Example |
-|--------|-------------|---------|
-| `object_id` | Unique identifier (Tolkien-themed!) | `Dornhoth_fervain_onodrim` |
-| `Z` | Redshift | `0.4324` |
-| `Z_err` | Redshift error (empty for training) | - |
-| `EBV` | Extinction E(B-V) | `0.058` |
-| `SpecType` | Spectral type (training only) | `AGN`, `SN II`, `TDE`, etc. |
-| `English Translation` | Name meaning | `moon + roof + noble maiden` |
-| `split` | Which split folder | `split_01` |
-| `target` | **Binary target** (0 or 1) | `0` = non-TDE, `1` = TDE |
+**Class Imbalance**: 148 TDE vs 2906 non-TDE (ratio: 19.56)
 
-### Lightcurve CSV Columns
-| Column | Description | Example |
-|--------|-------------|---------|
-| `object_id` | Links to log file | `Dornhoth_fervain_onodrim` |
-| `Time (MJD)` | Modified Julian Date | `63314.4662` |
-| `Flux` | Flux in μJy | `10.49938934` |
-| `Flux_err` | Flux error | `0.25386745` |
-| `Filter` | LSST band | `u`, `g`, `r`, `i`, `z`, `y` |
-
-### Key Technical Details
-- **Training objects**: ~3,054 (30%)
-- **Test objects**: ~7,124 (70%)
-- **LSST bands**: u, g, r, i, z, y
-- **Target**: Binary (TDE vs non-TDE)
-- **SpecTypes in training**: AGN, SN II, SN Ia, TDE, SLSN, etc.
-
-### Data Loading Strategy
-```python
-import pandas as pd
-import os
-
-# Load metadata
-train_log = pd.read_csv('data/raw/train_log.csv')
-test_log = pd.read_csv('data/raw/test_log.csv')
-
-# Load all lightcurves (concatenate splits)
-train_lcs = []
-for i in range(1, 21):
-    path = f'data/raw/split_{i:02d}/train_full_lightcurves.csv'
-    if os.path.exists(path):
-        train_lcs.append(pd.read_csv(path))
-train_lightcurves = pd.concat(train_lcs, ignore_index=True)
-```
+**LSST Bands**: u, g, r, i, z, y
 
 ---
 
-## Feature Engineering Categories
-
-### 1. Statistical Features (Baseline)
-```python
-# Per-band statistics
-mean_flux, std_flux, min_flux, max_flux
-skewness, kurtosis
-number_of_observations
-time_span, median_absolute_deviation
-```
-
-### 2. Lightcurve Shape Features
-- Rise time (to peak)
-- Fade time (from peak)
-- Peak flux
-- Amplitude (max-min)
-- Asymmetry (rise_time / fade_time)
-
-### 3. Color Features (Most Important!)
-```python
-# At peak
-g_minus_r_at_peak, r_minus_i_at_peak
-
-# Post-peak (20, 50, 100 days after)
-g_minus_r_post_20d, g_minus_r_post_50d
-
-# Color evolution
-color_slope_gr = (g_r_post - g_r_peak) / delta_time
-```
-
-### 4. Gaussian Process Features
-```python
-# From GP fit to each lightcurve
-gp_amplitude
-gp_length_scale_time
-gp_length_scale_wavelength
-gp_fit_residuals
-```
-
-### 5. Physics-Motivated Features
-- Blackbody temperature (from SED)
-- Temperature evolution (dT/dt)
-- Variability structure function
-- Host offset (if available)
-
-### 6. Cross-Band Features
-```python
-flux_ratio_g_r, flux_ratio_r_i
-lag_g_r = mjd_peak_g - mjd_peak_r
-correlation_g_r
-```
-
-### 7. Redshift-Corrected Features
-```python
-rest_frame_duration = observed_duration / (1 + z)
-absolute_mag = apparent_mag - 5*log10(d_L) - K_correction
-```
-
----
-
-## Model Configurations
-
-### XGBoost
-- Handles missing values natively (sparse lightcurves)
-- Good with heterogeneous features
-
-### LightGBM
-- Faster training
-- Leaf-wise growth better for imbalanced data
-
-### RNN/LSTM
-- Learn temporal patterns from raw lightcurves
-- No hand-crafted features needed
-- Consider attention mechanism
-
-### Ensemble Strategy
-- Weighted averaging
-- Stacking (model predictions as meta-features)
-- Blending (different folds)
-- Rank averaging
-
----
-
-## Important Considerations
-
-### Class Imbalance
-TDEs are rare (~64 out of ~3000 training). Consider:
-- Class weights in models
-- SMOTE oversampling
-- Focal loss for neural networks
-
-### Validation Strategy
-- Stratified K-fold (preserve class ratios)
-- Track per-class metrics
-
-### Key Insight: Why Colors Matter
-TDEs maintain hot blackbody temperatures (~2-4×10⁴ K) because the accretion disk is continuously heated. SNe cool as they expand (adiabatic cooling). AGN colors fluctuate stochastically. This physics directly translates to g-r color behavior!
-
----
-
-## Commands
+## Key Commands
 
 ```bash
-# Install dependencies
-pip install pandas numpy scikit-learn xgboost lightgbm matplotlib seaborn plotly
-pip install george  # For Gaussian Process fitting
-pip install torch   # For RNN/LSTM
+# Train best XGBoost model
+python scripts/train_v34a_bazin.py
 
-# Run training scripts (to be created)
-python scripts/train_baseline.py
-python scripts/train_rnn.py
-python scripts/ensemble.py
+# Train LightGBM variants
+python scripts/train_v110_lgbm_regularized.py
+python scripts/train_v111_lgbm_dart.py
+python scripts/train_v112_lgbm_optuna_reg.py
+
+# Create ensemble (after LB scores known)
+python scripts/train_v113_xgb_lgb_ensemble.py
 ```
 
 ---
 
-## Project Structure (Recommended)
+## Key Learnings
+
+### What Works
+- **Bazin parametric fits** - Captures rise/fall physics
+- **GP color features** - g-r, r-i colors at 20d, 50d post-peak
+- **Heavy regularization** - Prevents overfitting to training quirks
+- **Optimal threshold ~0.07** - Not 0.5 due to class imbalance
+- **Feature selection** - 70-120 features optimal, more = worse
+
+### What Doesn't Work
+- **Adding more features** - Always hurts LB
+- **Data augmentation** - Domain shift issues
+- **Naive ensembling** - v78 ensemble worse than solo models
+- **Deep learning** - LSTM 0.12 F1, ATAT 0.50 F1
+- **Cesium features** - Added noise, not signal
+
+### Physics Insight
+TDEs maintain hot blackbody temperatures (~2-4×10⁴ K) due to continuous accretion heating. SNe cool as they expand. AGN fluctuate stochastically. This makes **color evolution** the key discriminator.
+
+---
+
+## Next Steps
+
+1. **Submit v110, v111, v112 to Kaggle** - Get LB scores
+2. **Identify best LightGBM** - Whichever has highest LB (not OOF!)
+3. **Create ensemble** - Weighted average of v34a XGB + best LGB
+4. **Feature engineering** - If time permits, explore new physics features
+
+---
+
+## File Structure
 
 ```
 MALLORN astrophysics/
-├── CLAUDE.md
+├── CLAUDE.md                    # This file
 ├── data/
-│   ├── raw/           # Downloaded Kaggle data
-│   └── processed/     # Feature-engineered datasets
-├── notebooks/
-│   ├── 01_eda.ipynb
-│   ├── 02_feature_engineering.ipynb
-│   ├── 03_model_training.ipynb
-│   └── 04_ensemble.ipynb
-├── src/
-│   ├── features/
-│   │   ├── statistical.py
-│   │   ├── lightcurve_shape.py
-│   │   ├── colors.py
-│   │   ├── gaussian_process.py
-│   │   └── physics_based.py
-│   ├── models/
-│   │   ├── xgboost_model.py
-│   │   ├── lightgbm_model.py
-│   │   └── rnn_model.py
-│   └── utils/
-│       ├── data_loader.py
-│       └── evaluation.py
+│   ├── raw/                     # Kaggle data
+│   └── processed/               # Feature caches
 ├── scripts/
-│   ├── train_baseline.py
-│   ├── train_rnn.py
-│   └── ensemble.py
-└── submissions/
-    └── submission_v1.csv
+│   ├── train_v34a_bazin.py      # Best XGBoost
+│   ├── train_v110_lgbm_*.py     # LightGBM experiments
+│   └── train_v113_*.py          # Ensemble
+├── src/
+│   ├── features/                # Feature extraction modules
+│   ├── models/                  # Model definitions
+│   └── utils/data_loader.py     # Data loading utilities
+└── submissions/                 # CSV files for Kaggle
 ```
-
----
-
-## Progress Tracking
-
-### Phase A: Enhanced GBM ⬅️ CURRENT
-- [ ] GP length scale features
-- [ ] Blackbody temperature features
-- [ ] Enhanced post-peak colors
-- [ ] ASTROMER embeddings
-
-### Phase B: ATAT
-- [ ] Clone and adapt ATAT repo
-- [ ] Train and evaluate
-- [ ] Compare to LSTM
-
-### Phase C: SwinV2
-- [ ] Implement lightcurve→image conversion
-- [ ] Fine-tune SwinV2
-- [ ] Evaluate
-
----
-
-### Results History
-| Date | Version | OOF F1 | LB F1 | Model | Notes |
-|------|---------|--------|-------|-------|-------|
-| Dec 25 | v1 | 0.30 | 0.333 | GBM | Statistical features only |
-| Dec 25 | v2 | 0.51 | 0.499 | GBM | +Color features |
-| Dec 25 | v3 | 0.56 | - | GBM | +Shape features |
-| Dec 26 | v8 | 0.6262 | 0.6481 | GBM Ensemble | Rank 47/489 |
-| Dec 26 | v11 | 0.12 | - | LSTM | Raw lightcurves |
-| Dec 27 | v19 | 0.6626 | 0.6649 | GBM+Multi-band GP | +5.8% OOF |
-| Dec 28 | v20c | 0.6687 | 0.6518 | GBM+Optuna tuned | +0.92% over v19 |
-| Dec 28 | **v34a** | **0.6667** | **0.6907** | **XGB Optuna** | **BEST LB** |
-| Jan 11 | v65 | 0.6780 | 0.6344 | MaxVar features | Severe overfit |
-| Jan 11 | v71 | 0.6701 | 0.5800 | PLAsTiCC augment | Catastrophic overfit |
-| Jan 11 | v72 | 0.6723 | 0.6500 | Top 100 features | Feature reduction |
-| Jan 11 | v74 | 0.6856 | 0.6441 | Selective Cesium | Overfit |
-| Jan 11 | v77 | 0.6886 | 0.6714 | LightGBM Optuna | Best OOF LGB |
-| Jan 11 | v78 | 0.6921 | 0.6558 | XGB+LGB Ensemble | Ensemble hurt |
-| Jan 11 | v79c | 0.6834 | 0.6891 | 70 physics features | 2nd best LB |
-| Jan 11 | v80a | 0.7118 | 0.6666 | +Structure Function | Best OOF, overfit |
-| Jan 11 | v80c | 0.7000 | 0.6682 | +SF+TDE+Decline | At 0.70 barrier |
-
-### Key Learnings (Updated Jan 2026)
-
-**Critical Pattern: Higher OOF F1 = WORSE LB F1**
-- v34a: OOF 0.6667 → LB 0.6907 (best)
-- v77: OOF 0.6886 → LB 0.6714
-- v80a: OOF 0.7118 → LB 0.6666
-
-**Feature Engineering Insights:**
-- **Structure Function features**: +1.5% OOF (captures AGN damped random walk)
-- **Color-magnitude relation**: +1.3% OOF (AGN "bluer when brighter")
-- **TDE power law deviation**: +1.1% OOF (tests t^-5/3 decay)
-- **70 physics features optimal**: More features = worse LB
-- **PLAsTiCC augmentation catastrophic**: 0.58 LB (train/test shift)
-
-**Algorithm Insights:**
-- XGBoost generalizes better than LightGBM despite worse OOF
-- Ensembling HURTS (v78 ensemble worse than solo models)
-- CatBoost poor performance (0.56 OOF)
-
-**What Didn't Work:**
-- Adding more features (always hurt LB)
-- Augmentation (domain shift)
-- Ensembling (combined overfitting)
-- Cesium time-series features (noise)
-- **More features ≠ better** - v20 (375 features) < v19 (172 features) in OOF F1
-- **Selective feature addition wins** - Only add features that prove useful through benchmarking
-- **Optuna tuning is essential** - v20c gained +1.5% from proper hyperparameter search
-- **ATAT transformer works** - 0.50 F1, +38% over naive LSTM, but still below GBM
-- **Single XGBoost beats ensemble on OOF** - 0.6708 vs 0.6687, simpler may generalize better
-- **Optimal threshold ~0.07** (not 0.5!) due to class imbalance
 
 ---
 
 ## Quick Start
 
 ```bash
-# Navigate to project folder
 cd "C:\Users\alexy\Documents\Claude_projects\Kaggle competition\MALLORN astrophysics"
-
-# Launch Claude Code
-claude
 ```
 
-Then say: "Let's start with Phase 1 - explore the data and build the first baseline model"
+**Priority tasks**:
+1. Submit pending LightGBM models to Kaggle
+2. Compare LB scores to identify best generalizing model
+3. Build ensemble with XGBoost + best LightGBM
